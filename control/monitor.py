@@ -1,6 +1,6 @@
 from argparse import ArgumentError
 import ssl
-from django.db.models import Avg
+from django.db.models import Avg, Min, Max, Count
 from datetime import timedelta, datetime
 from receiver.models import Data, Measurement
 import paho.mqtt.client as mqtt
@@ -9,6 +9,72 @@ import time
 from django.conf import settings
 
 client = mqtt.Client(settings.MQTT_USER_PUB)
+datos_previos = {}
+
+
+def custom_analyze_data():
+    # Consulta todos los datos de la última hora, los agrupa por estación y variable
+    # Compara el promedio con los valores límite que están en la base de datos para esa variable.
+    # Si el promedio se excede de los límites, se envia un mensaje de alerta.
+
+    print("Calculando nuevas alertas...")
+
+    data = Data.objects.filter(
+        base_time__gte=datetime.now() - timedelta(hours=1))
+    aggregation = data.annotate(check_last_value=Max(data.last())) \
+        .select_related('station', 'measurement') \
+        .select_related('station__user', 'station__location') \
+        .select_related('station__location__city', 'station__location__state',
+                        'station__location__country') \
+        .values('check_last_value', 'station__user__username',
+                'measurement__name',
+                'measurement__max_value',
+                'measurement__min_value',
+                'station__location__city__name',
+                'station__location__state__name',
+                'station__location__country__name')  
+    
+
+    alerts = 0
+    for item in aggregation:
+        alert_1 = False
+        alert_2 = False
+
+        variable = item["measurement__name"]
+        max_value = item["measurement__max_value"] or 0
+        min_value = item["measurement__min_value"] or 0
+
+        country = item['station__location__country__name']
+        state = item['station__location__state__name']
+        city = item['station__location__city__name']
+        user = item['station__user__username']
+
+        if len(datos_previos) > 0 and variable == "Temperatura":
+            m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
+            if m > 1/600:
+                alert_1 = True
+            if max_value > 28:
+                alert_2 = True
+
+        if alert_1:
+            message = "ALERT {} {}".format(variable, 'Ventilador')
+            topic = '{}/{}/{}/{}/in'.format(country, state, city, user)
+            print(datetime.now(), "Sending alert to {} {}".format(topic, variable))
+            client.publish(topic, message)
+            alerts += 1
+
+        if alert_2:
+            message = "ALERT {} {}".format(variable, 'Aire Acondicionado')
+            topic = '{}/{}/{}/{}/in'.format(country, state, city, user)
+            print(datetime.now(), "Sending alert to {} {}".format(topic, variable))
+            client.publish(topic, message)
+            alerts += 1
+        
+        if variable == 'Temperatura':
+            datos_previos[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_value']
+
+    print(len(aggregation), "dispositivos revisados")
+    print(alerts, "nuevas alertas enviadas")
 
 
 def analyze_data():
@@ -106,6 +172,7 @@ def start_cron():
     '''
     print("Iniciando cron...")
     schedule.every(5).minutes.do(analyze_data)
+    schedule.every(30).seconds.do(custom_analyze_data)
     print("Servicio de control iniciado")
     while 1:
         schedule.run_pending()
