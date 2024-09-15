@@ -51,9 +51,9 @@ def custom_analyze_data():
 
         if len(datos_previos) > 0 and variable == "Temperatura":
             m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
-            if m > 1/600:
+            if m > 1/2400:
                 alert_1 = True
-            if max_value > 28:
+            if max_value > 26.5:
                 alert_2 = True
 
         if alert_1:
