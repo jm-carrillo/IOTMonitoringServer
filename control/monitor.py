@@ -21,7 +21,7 @@ def custom_analyze_data():
 
     data = Data.objects.filter(
         base_time__gte=datetime.now() - timedelta(hours=1))
-    aggregation = data.annotate(check_last_value=Max('max_value')) \
+    aggregation = data.annotate(check_last_value=Max('values[length]')) \
         .select_related('station', 'measurement') \
         .select_related('station__user', 'station__location') \
         .select_related('station__location__city', 'station__location__state',
@@ -56,7 +56,7 @@ def custom_analyze_data():
             m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
             if m > 1/2400:
                 alert_1 = True
-            if max_value > 26.5:
+            if item['check_last_value'] > 26.5:
                 alert_2 = True
 
         if alert_1:
