@@ -52,7 +52,7 @@ def custom_analyze_data():
         print(datos_previos)
         print(item['check_last_value'])
         print(variable)
-        if len(datos_previos) > 0 and variable == "Temperatura":
+        if len(datos_previos) > 0 and variable == "temperatura":
             m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
             if m > 1/2400:
                 alert_1 = True
