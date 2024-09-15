@@ -21,7 +21,7 @@ def custom_analyze_data():
 
     data = Data.objects.filter(
         base_time__gte=datetime.now() - timedelta(hours=1))
-    print(data.values())
+    # print(data.values())
     aggregation = data.annotate(check_last_value=Max('values')) \
         .select_related('station', 'measurement') \
         .select_related('station__user', 'station__location') \
@@ -54,10 +54,10 @@ def custom_analyze_data():
         print(item['check_last_value'])
         print(variable)
         if len(datos_previos) > 0 and variable == "temperatura":
-            m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
+            m = (item['check_last_value'][-1] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
             if m > 1/2400:
                 alert_1 = True
-            if item['check_last_value'] > 26.5:
+            if item['check_last_value'][-1] > 27:
                 alert_2 = True
 
         if alert_1:
@@ -75,7 +75,7 @@ def custom_analyze_data():
             alerts += 1
         
         if variable == 'temperatura':
-            datos_previos[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_value']
+            datos_previos[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_value'][-1]
 
     print(len(aggregation), "dispositivos revisados")
     print(alerts, "nuevas alertas enviadas")
