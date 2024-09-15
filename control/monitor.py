@@ -73,7 +73,7 @@ def custom_analyze_data():
             client.publish(topic, message)
             alerts += 1
         
-        if variable == 'Temperatura':
+        if variable == 'temperatura':
             datos_previos[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_value']
 
     print(len(aggregation), "dispositivos revisados")
