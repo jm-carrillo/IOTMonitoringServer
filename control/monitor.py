@@ -21,7 +21,8 @@ def custom_analyze_data():
 
     data = Data.objects.filter(
         base_time__gte=datetime.now() - timedelta(hours=1))
-    aggregation = data.annotate(check_last_value=Max('values[length]')) \
+    print(data.last('values'))
+    aggregation = data.annotate(check_last_value=Max(data.last('values'))) \
         .select_related('station', 'measurement') \
         .select_related('station__user', 'station__location') \
         .select_related('station__location__city', 'station__location__state',
