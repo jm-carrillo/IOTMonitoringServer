@@ -49,6 +49,9 @@ def custom_analyze_data():
         city = item['station__location__city__name']
         user = item['station__user__username']
 
+        print(datos_previos)
+        print(item['check_last_value'])
+        print(variable)
         if len(datos_previos) > 0 and variable == "Temperatura":
             m = (item['check_last_value'] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
             if m > 1/2400:
