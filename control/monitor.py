@@ -60,7 +60,7 @@ def custom_analyze_data():
             m = (item['check_last_values'][-1] - previous_sample_last_value)/30
             if m > 1/2400:
                 alert_1 = True
-            if sum(current_sample_values)/len(current_sample_values) > 26.5:   #item['check_last_values'][-1] > 27:
+            if len(current_sample_values) > 0 and sum(current_sample_values)/len(current_sample_values) > 27:
                 alert_2 = True
 
         if alert_1:
@@ -84,52 +84,52 @@ def custom_analyze_data():
     print(alerts, "nuevas alertas enviadas")
 
 
-def analyze_data():
-    # Consulta todos los datos de la última hora, los agrupa por estación y variable
-    # Compara el promedio con los valores límite que están en la base de datos para esa variable.
-    # Si el promedio se excede de los límites, se envia un mensaje de alerta.
+# def analyze_data():
+#     # Consulta todos los datos de la última hora, los agrupa por estación y variable
+#     # Compara el promedio con los valores límite que están en la base de datos para esa variable.
+#     # Si el promedio se excede de los límites, se envia un mensaje de alerta.
 
-    print("Calculando alertas...")
+#     print("Calculando alertas...")
 
-    data = Data.objects.filter(
-        base_time__gte=datetime.now() - timedelta(hours=1))
-    aggregation = data.annotate(check_value=Avg('avg_value')) \
-        .select_related('station', 'measurement') \
-        .select_related('station__user', 'station__location') \
-        .select_related('station__location__city', 'station__location__state',
-                        'station__location__country') \
-        .values('check_value', 'station__user__username',
-                'measurement__name',
-                'measurement__max_value',
-                'measurement__min_value',
-                'station__location__city__name',
-                'station__location__state__name',
-                'station__location__country__name')
-    alerts = 0
-    for item in aggregation:
-        alert = False
+#     data = Data.objects.filter(
+#         base_time__gte=datetime.now() - timedelta(hours=1))
+#     aggregation = data.annotate(check_value=Avg('avg_value')) \
+#         .select_related('station', 'measurement') \
+#         .select_related('station__user', 'station__location') \
+#         .select_related('station__location__city', 'station__location__state',
+#                         'station__location__country') \
+#         .values('check_value', 'station__user__username',
+#                 'measurement__name',
+#                 'measurement__max_value',
+#                 'measurement__min_value',
+#                 'station__location__city__name',
+#                 'station__location__state__name',
+#                 'station__location__country__name')
+#     alerts = 0
+#     for item in aggregation:
+#         alert = False
 
-        variable = item["measurement__name"]
-        max_value = item["measurement__max_value"] or 0
-        min_value = item["measurement__min_value"] or 0
+#         variable = item["measurement__name"]
+#         max_value = item["measurement__max_value"] or 0
+#         min_value = item["measurement__min_value"] or 0
 
-        country = item['station__location__country__name']
-        state = item['station__location__state__name']
-        city = item['station__location__city__name']
-        user = item['station__user__username']
+#         country = item['station__location__country__name']
+#         state = item['station__location__state__name']
+#         city = item['station__location__city__name']
+#         user = item['station__user__username']
 
-        if item["check_value"] > max_value or item["check_value"] < min_value:
-            alert = True
+#         if item["check_value"] > max_value or item["check_value"] < min_value:
+#             alert = True
 
-        if alert:
-            message = "ALERT {} {} {}".format(variable, min_value, max_value)
-            topic = '{}/{}/{}/{}/in'.format(country, state, city, user)
-            print(datetime.now(), "Sending alert to {} {}".format(topic, variable))
-            client.publish(topic, message)
-            alerts += 1
+#         if alert:
+#             message = "ALERT {} {} {}".format(variable, min_value, max_value)
+#             topic = '{}/{}/{}/{}/in'.format(country, state, city, user)
+#             print(datetime.now(), "Sending alert to {} {}".format(topic, variable))
+#             client.publish(topic, message)
+#             alerts += 1
 
-    print(len(aggregation), "dispositivos revisados")
-    print(alerts, "alertas enviadas")
+#     print(len(aggregation), "dispositivos revisados")
+#     print(alerts, "alertas enviadas")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -178,7 +178,7 @@ def start_cron():
     Inicia el cron que se encarga de ejecutar la función analyze_data cada 5 minutos.
     '''
     print("Iniciando cron...")
-    schedule.every(5).minutes.do(analyze_data)
+    # schedule.every(5).minutes.do(analyze_data)
     schedule.every(30).seconds.do(custom_analyze_data)
     print("Servicio de control iniciado")
     while 1:
