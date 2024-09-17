@@ -9,7 +9,7 @@ import time
 from django.conf import settings
 
 client = mqtt.Client(settings.MQTT_USER_PUB)
-datos_previos = {}
+previous_sample_values = {}
 
 
 def custom_analyze_data():
@@ -21,13 +21,12 @@ def custom_analyze_data():
 
     data = Data.objects.filter(
         base_time__gte=datetime.now() - timedelta(hours=1))
-    # print(data.values())
-    aggregation = data.annotate(check_last_value=Max('values')) \
+    aggregation = data.annotate(check_last_values=Max('values')) \
         .select_related('station', 'measurement') \
         .select_related('station__user', 'station__location') \
         .select_related('station__location__city', 'station__location__state',
                         'station__location__country') \
-        .values('check_last_value', 'station__user__username',
+        .values('check_last_values', 'station__user__username',
                 'measurement__name',
                 'measurement__max_value',
                 'measurement__min_value',
@@ -50,14 +49,18 @@ def custom_analyze_data():
         city = item['station__location__city__name']
         user = item['station__user__username']
 
-        print(datos_previos)
-        print(item['check_last_value'])
-        print(variable)
-        if len(datos_previos) > 0 and variable == "temperatura":
-            m = (item['check_last_value'][-1] - datos_previos[f"{user}|{city}|{state}|{country}|{variable}"])/30
+        if len(previous_sample_values) > 0 and variable == "temperatura":
+            previous_sample_length = len(previous_sample_values[f"{user}|{city}|{state}|{country}|{variable}"])
+            previous_sample_last_value = previous_sample_values[f"{user}|{city}|{state}|{country}|{variable}"][-1]
+            current_sample_values = item['check_last_values'][previous_sample_length:]
+            print('current sample values = ', current_sample_values)
+            print("*********************************************************")
+            print('previous sample last value = ', previous_sample_last_value)
+            print('current sample last value = ', item['check_last_values'][-1])
+            m = (item['check_last_values'][-1] - previous_sample_last_value)/30
             if m > 1/2400:
                 alert_1 = True
-            if item['check_last_value'][-1] > 27:
+            if sum(current_sample_values)/len(current_sample_values) > 26.5:   #item['check_last_values'][-1] > 27:
                 alert_2 = True
 
         if alert_1:
@@ -75,7 +78,7 @@ def custom_analyze_data():
             alerts += 1
         
         if variable == 'temperatura':
-            datos_previos[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_value'][-1]
+            previous_sample_values[f"{user}|{city}|{state}|{country}|{variable}"] = item['check_last_values']
 
     print(len(aggregation), "dispositivos revisados")
     print(alerts, "nuevas alertas enviadas")
